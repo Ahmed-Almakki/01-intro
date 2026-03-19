@@ -1,8 +1,10 @@
 import mlflow
+from mlflow.entities import ViewType
+from mlflow.tracking import MlflowClient
 import numpy as np
-import pandas as pd
-from prefect import task, flow
-from sklearn.ensemble import RandomForestRegressor
+import pandas as pd 
+from prefect import task, flow 
+from sklearn.ensemble import RandomForestRegressor 
 
 
 
@@ -34,6 +36,20 @@ def train_best(params):
         model = RandomForestRegressor(**params)
         model.fit(X_train, Y_train)
 
+def register_model():
+    """
+    Register the model as None and later you can change it to Staging or Proudction
+    """
+    client = MlflowClient()
+    experiment = client.get_experiment_by_name("RandomForestBestParameters")
+    run = client.search_runs(
+        experiment_ids=experiment.experiment_id,
+        run_view_type=ViewType.ACTIVE_ONLY
+        )[0]
+    run_id = run.info.run_id
+    model_uri = f"runs:/{run_id}/model"
+    mlflow.register_model(model_uri=model_uri, name="nyc-taxi-best-model-march-yello")
+
 
 if __name__ == '__main__':
     df = load(file_path)
@@ -48,3 +64,5 @@ if __name__ == '__main__':
     }
     print("start training")
     train_best(best_params)
+
+    register_model()
