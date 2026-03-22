@@ -11,7 +11,7 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import root_mean_squared_error
 from sklearn.model_selection import train_test_split, cross_val_score
 
-mlflow.set_tracking_uri("http://127.0.0.1")
+mlflow.set_tracking_uri("http://127.0.0.1:5000")
 mlflow.set_experiment("RandomForestPrefect")
 
 
@@ -30,14 +30,14 @@ def process_data(df: pd.DataFrame) -> tuple:
     """
     df['PU_DO'] = df['PULocationID'].astype(str) + '_' + df['DOLocationID'].astype(str)
     df_encoded = pd.get_dummies(df[['PU_DO', 'trip_distance']], columns=['PU_DO'])
-    df_encoded["duration"] = df['tpep_dropoff_datetime'] - df['tpep_pickup_datetime']
+    df_encoded["duration"] = df['lpep_dropoff_datetime'] - df['lpep_pickup_datetime']
     df_encoded.duration = df_encoded.duration.apply(lambda td: td.total_seconds() / 60)
     Y = df_encoded.pop("duration")
     return df_encoded, Y
 
 
 
-def firstTrain(X_train: pd.DataFrame, Y_train: np.ndarray, X_val: pd.DataFrame, Y_val: np.ndarray):
+def firstTrain(X_train: pd.DataFrame, Y_train: np.ndarray) -> dict:
     """
     Start the first stage of training to exctract the best parameter
     """
@@ -60,7 +60,7 @@ def firstTrain(X_train: pd.DataFrame, Y_train: np.ndarray, X_val: pd.DataFrame, 
                 model, X_train, Y_train, cv=5, scoring="neg_root_mean_squared_error", n_jobs=-1
             )
             rmse = abs(score.mean())
-            
+
             # y_pred = model.predict(X_val)
             # rmse = root_mean_squared_error(y_pred=y_pred, y_true=Y_val)
 
@@ -93,6 +93,14 @@ def firstTrain(X_train: pd.DataFrame, Y_train: np.ndarray, X_val: pd.DataFrame, 
     return best_params
 
 
-
+def main_pipeline():
+    file_path = "../02-experiment-tracking/data/green_tripdata_2023-01.parquet"
+    df = load_data(file_path)
+    print("data loaded successfully")
+    x, y = process_data(df)
+    print("data have been processed succussfully")
+    best_params = firstTrain(x, y)
+    print(f"best params: {best_params}")
     
 
+main_pipeline()
