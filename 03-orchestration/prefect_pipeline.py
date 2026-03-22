@@ -4,6 +4,7 @@ Pipeline Model Deployment
 from hyperopt import fmin, tpe, hp, Trials, STATUS_OK
 from hyperopt.pyll import scope
 import mlflow
+from mlflow.tracking import MlflowClient
 import numpy as np
 import pandas as pd
 from prefect import flow, task
@@ -11,8 +12,9 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import root_mean_squared_error
 from sklearn.model_selection import train_test_split, cross_val_score
 
+EXPERIMENT_NAME = "RandomForestPrefect"
 mlflow.set_tracking_uri("http://127.0.0.1:5000")
-mlflow.set_experiment("RandomForestPrefect")
+mlflow.set_experiment(EXPERIMENT_NAME)
 
 
 
@@ -37,7 +39,7 @@ def process_data(df: pd.DataFrame) -> tuple:
 
 
 
-def firstTrain(X_train: pd.DataFrame, Y_train: np.ndarray) -> dict:
+def firstTrain(X_train: pd.DataFrame, Y_train: np.ndarray) -> None:
     """
     Start the first stage of training to exctract the best parameter
     """
@@ -51,7 +53,7 @@ def firstTrain(X_train: pd.DataFrame, Y_train: np.ndarray) -> dict:
             mlflow.sklearn.autolog()
 
             model = RandomForestRegressor(**params, random_state=42)
-            model.fit(X_train, Y_train)
+            # model.fit(X_train, Y_train)
 
             # Perform 5-Fold Cross Validation. 
             # n_jobs=-1 tells it to use all your CPU cores to speed it up.
@@ -81,7 +83,7 @@ def firstTrain(X_train: pd.DataFrame, Y_train: np.ndarray) -> dict:
     trails = Trials()
 
     with mlflow.start_run(run_name="HyperOpt_Optmization"):
-        best_params = fmin(
+        fmin(
             fn=hyperTrain,
             space=space,
             algo=tpe.suggest,
@@ -90,7 +92,57 @@ def firstTrain(X_train: pd.DataFrame, Y_train: np.ndarray) -> dict:
             rstate=rstate,
         )
 
-    return best_params
+def evaluation(name, x_test):
+    client = MlflowClient()
+    experiment = client.get_experiment_by_name(name)
+
+    runs = client.search_runs(
+        experiment_ids=[experiment.experiment_id],
+        order_by = ["metrics.rmse ASC"]
+    )
+
+    # Ensure we don't accidentally grab the "Parent" run by filtering out runs without the metric
+    valid_runs = [r for r in runs if "rmse" in r.data.metrics]
+
+    top_5_runs = valid_runs[:5]
+    best_run_id = None
+    best_metric = float('inf')
+
+    for run in top_5_runs:
+        run_id = run.info.run_id
+        model_uri = f"runs:/{run_id}/model" 
+
+        model = mlflow.sklearn.load_model(model_uri)
+        
+        # Evaluate on the unseen test data
+        y_pred = model.predict(x_test)
+        test_rmse = root_mean_squared_error(y_test, y_pred)
+        
+        cv_rmse = run.data.metrics['cv_mean_rmse']
+        print(f"Run {run_id[:8]} | CV RMSE: {cv_rmse:.4f} | Test RMSE: {test_rmse:.4f}")
+
+        # Track the absolute best performer on the test set
+        if test_rmse < best_test_rmse:
+            best_test_rmse = test_rmse
+            ultimate_best_run_id = run_id
+
+    print(f"\n🏆 Ultimate Winner: Run {ultimate_best_run_id} (Test RMSE: {best_test_rmse:.4f})")
+
+    # 5. The Cleanup Phase (Garbage Collection)
+    print("\n--- Commencing Cleanup ---")
+    deleted_count = 0
+    
+    for run in all_runs:
+        # If the run is NOT our ultimate winner, delete it!
+        if run.info.run_id != ultimate_best_run_id:
+            client.delete_run(run.info.run_id)
+            deleted_count += 1
+            
+    print(f"Cleanup complete. Deleted {deleted_count} rejected runs.")
+    print("Only the best model remains in your MLflow database and artifacts folder!")
+    
+    return ultimate_best_run_id
+
 
 
 def main_pipeline():
