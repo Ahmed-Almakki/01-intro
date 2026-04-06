@@ -37,6 +37,12 @@ y_pred = model.predict(X_val)
 print(f"Standard deviation:{df['duration'].std():.2f}")
 
 df['ride_id'] = f'{year:04d}/{month:02d}_' + df.index.astype('str')
-df.to_parquet(f'data/yellow_tripdata_{year}-{month:02d}.parquet', engine='pyarrow', compression=None, index=False)
+df_result = pd.DataFrame({
+    'ride_id': df['ride_id'],
+    'predictions': y_pred
+})
+
+output_file = f'predictions_{year:04d}_{month:02d}.parquet'
+df_result.to_parquet(f'{output_file}', engine='pyarrow', compression=None, index=False)
 
 print(f"Predicted mean duration: {y_pred.mean():.2f} minutes")
