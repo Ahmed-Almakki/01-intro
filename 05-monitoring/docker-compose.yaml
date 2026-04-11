@@ -1,0 +1,20 @@
+name: monitoring
+
+services:
+    db:
+        image: postgres:17.9
+        restart: always
+        ports:
+            - 5432:5432
+        environment:
+            POSTGRES_USER: ahmed
+            POSTGRES_PASSWORD: 1138
+            POSTGRES_DB: monitoring
+
+    adminer:
+        image: adminer:standalone
+        restart: always
+        ports:
+            - 8080:8080
+
+    grafana:
