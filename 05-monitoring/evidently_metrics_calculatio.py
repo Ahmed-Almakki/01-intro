@@ -60,11 +60,11 @@ report = Report(metrics = [
 
 @task
 def prep_db():
-	with psycopg.connect("host=localhost port=5433 dbname=monitoring user=ahmed password=1138", autocommit=True) as conn:
+	with psycopg.connect("host=127.0.0.1 port=5433 dbname=monitoring user=ahmed password=1138", autocommit=True) as conn:
 		res = conn.execute("SELECT 1 FROM pg_database WHERE datname='monitoring'")
 		if len(res.fetchall()) == 0:
 			conn.execute("create database monitoring;")
-		with psycopg.connect("host=localhost port=5433 dbname=monitoring user=ahmed password=1138") as conn:
+		with psycopg.connect("host=127.0.0.1 port=5433 dbname=monitoring user=ahmed password=1138") as conn:
 			conn.execute(create_table_statement)
 
 @task(cache_policy=NO_CACHE)
@@ -94,7 +94,7 @@ def calculate_metrics_postgresql(curr, i):
 def batch_monitoring_backfill():
 	prep_db()
 	last_send = datetime.datetime.now() - datetime.timedelta(seconds=10)
-	with psycopg.connect("host=localhost port=5433 dbname=monitoring user=ahmed password=1138", autocommit=True) as conn:
+	with psycopg.connect("host=127.0.0.1 port=5433 dbname=monitoring user=ahmed password=1138", autocommit=True) as conn:
 		for i in range(0, 27):
 			with conn.cursor() as curr:
 				calculate_metrics_postgresql(curr, i)
