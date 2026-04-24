@@ -17,6 +17,9 @@ def read_data(filename, categorical):
     response = requests.get(filename)
     response.raise_for_status()
     df = pd.read_parquet(BytesIO(response.content))
+    return df
+
+def prepare_data(df, categorical):
     df['duration'] = df.tpep_dropoff_datetime - df.tpep_pickup_datetime
     df['duration'] = df.duration.dt.total_seconds() / 60
 
