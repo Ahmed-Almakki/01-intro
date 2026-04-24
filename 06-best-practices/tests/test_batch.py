@@ -18,3 +18,27 @@ def test_prepare_data():
     columns = ['PULocationID', 'DOLocationID', 'tpep_pickup_datetime', 'tpep_dropoff_datetime']
     df = pd.DataFrame(data, columns=columns)
 
+    actual_df = prepare_data(df, categorical=['PULocationID', 'DOLocationID'])
+
+    expected_data = [
+        {
+            'PULocationID': '-1', 
+            'DOLocationID': '-1',
+            'tpep_pickup_datetime': dt(1, 1), 
+            'tpep_dropoff_datetime': dt(1, 10), 
+            'duration': 9.0
+        },
+        {
+            'PULocationID': '1', 
+            'DOLocationID': '1',
+            'tpep_pickup_datetime': dt(1, 2), 
+            'tpep_dropoff_datetime': dt(1, 10), 
+            'duration': 8.0
+        }
+    ]
+
+    expected_df = pd.DataFrame(expected_data)
+
+    pd.testing.assert_frame_equal(actual_df.reset_index(drop=True), expected_df.reset_index(drop=True))
+    
+
